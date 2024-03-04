@@ -1,0 +1,769 @@
+---
+title: "PB for rare-event meta-analysis"
+subtitle: "Reproducible codes"
+author: "Yi"
+date: "`r Sys.Date()`"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(kableExtra)
+library(meta)
+library(cubature)
+library(metasens)
+library(ggplot2)
+library(dplyr)
+library(MCMCpack)
+library(latex2exp)
+
+data <- read.csv("niel-weise21.csv")
+data$c1 <- data$n1-data$y1
+data$c0 <- data$n0-data$y0
+correction <- function(
+  data, 
+  value = 0.5
+){
+
+    correction = ((((data$y1 == 0)|(data$y0 == 0))|(data$c1 == 0))| (data$c0 == 0)) * value
+
+    data$y1cc <- correction + data$y1
+    data$y0cc <- correction + data$y0
+    data$c1cc <- correction + data$c1
+    data$c0cc <- correction + data$c0
+
+  return(data)
+
+}
+
+data <- correction(data)
+
+rho_vec <- c(-0.9999, 0.9999)
+prob_min <- seq(0.1,0.9,0.1)
+
+save.results <- F
+
+```
+
+
+
+# Example 1
+
+## The standard random-effects model without PB
+
+```{r}
+
+yi <- log((data$y1cc/data$c1cc)/(data$y0cc/data$c0cc))
+vi <- 1/data$y1cc + 1/data$c1cc + 1/data$y0cc + 1/data$c0cc
+## Find initial values
+llk.NN1 = function(par) {
+  mu = par[1]
+  tau2 = par[2]
+  
+  llk <- dnorm(yi, mean = mu, sd = sqrt(vi + tau2), log = T)
+  
+  l3 = sum(llk, na.rm = TRUE)
+  
+  return(-l3)
+}
+
+start = c(-0.1, 0.1)
+result_nn1 = try(nlminb(start, llk.NN1,
+                    lower = c(-Inf, 0),
+                    upper = c(Inf, Inf)), silent = TRUE)
+
+hes <- numDeriv::hessian(llk.NN1, result_nn1$par)
+var.matrix <- solve(hes)
+mu01.se <- sqrt(var.matrix[1,1])
+mu01.lb <- result_nn1$par[1] + qnorm((1-0.95)/2, lower.tail = TRUE)*mu01.se
+mu01.ub <- result_nn1$par[1] + qnorm((1-0.95)/2, lower.tail = FALSE)*mu01.se
+
+sprintf("theta: %.3f (%.3f, %.3f)", result_nn1$par[1], mu01.lb, mu01.ub)
+sprintf("tau^2: %.3f", result_nn1$par[2])
+```
+
+
+## BN GLMM without PB
+
+```{r}
+
+y1 <- data$y1
+yi <- data$y1+data$y0
+n1 <- data$n1
+n0 <- data$n0
+ni <- n1+n0
+
+## Find initial values
+llk.BN2 = function(par) {
+  mu = par[1]
+  tau2 = par[2]
+  
+  f <- function(theta) {
+    
+    dbinom(y1, yi, prob = plogis(log(n1 / n0) + theta)) * dnorm(theta, mean = mu, sd = sqrt(tau2))
+    
+  }
+  
+  prob.prior = hcubature(f, lowerLimit = -Inf, upperLimit = Inf, fDim = length(y1), tol = 1e-10)$integral
+  
+  l3 = sum(log(prob.prior + 1e-30), na.rm = TRUE)
+  
+  return(-l3)
+}
+
+start = c(-1, 0.1)
+result_bn = try(nlminb(start, llk.BN2,
+                    lower = c(-Inf, 0),
+                    upper = c(Inf, 5)), silent = TRUE)
+
+hes <- numDeriv::hessian(llk.BN2, result_bn$par)
+var.matrix <- solve(hes)
+mu2.se <- sqrt(var.matrix[1,1])
+mu2.lb <- result_bn$par[1] + qnorm((1-0.95)/2, lower.tail = TRUE)*mu2.se
+mu2.ub <- result_bn$par[1] + qnorm((1-0.95)/2, lower.tail = FALSE)*mu2.se
+
+inival2 <- result_bn$par
+sprintf("theta: %.3f (%.3f, %.3f)", result_bn$par[1], mu2.lb, mu2.ub)
+sprintf("tau^2: %.3f", result_bn$par[2])
+```
+
+## BN GLMM with PB
+
+```{r}
+par2 <- NULL
+for(sa.rho in rho_vec) {
+  
+  for(sa.pmin in prob_min){
+    
+    rho <- sa.rho
+    P_max <- 0.99
+    P_min <- sa.pmin
+    
+    
+    llk.BN2sa = function(par) {
+      mu = par[1]
+      tau2 = par[2]
+      tau <- sqrt(tau2)
+      
+      f <- function(theta) {
+        
+        
+        n_min <- min(ni) 
+        n_max <- max(ni)
+        
+        a1 <- (qnorm(P_max)-qnorm(P_min))/(sqrt(n_max)-sqrt(n_min))
+        a0 <- qnorm(P_max)-a1*sqrt(n_max)
+
+        pnorm((a0+a1*sqrt(ni)+rho*(theta-mu)/tau)/sqrt(1-rho^2))/pnorm(a0+a1*sqrt(ni)) * 
+          dbinom(y1, yi, prob = plogis(log(n1 / n0) + theta)) * 
+          dnorm(theta, mean = mu, sd = tau)
+        
+      }
+      
+      prob.prior = cubature::hcubature(f, lowerLimit = -Inf, upperLimit = Inf, fDim = length(yi), tol = 1e-10)$integral
+      
+      l3 = sum(log(prob.prior), na.rm = TRUE)
+      
+      return(-l3)
+    }
+    
+    result = try(nlminb(inival2, llk.BN2sa,
+                         lower = c(-Inf, 0),
+                         upper = c(Inf, 5)), silent = TRUE)
+    hes <- numDeriv::hessian(llk.BN2sa, result$par)
+    var.matrix <- solve(hes)
+    u1.se <- sqrt(var.matrix[1,1])
+    u1.lb <- result$par[1] + qnorm((1-0.95)/2, lower.tail = TRUE)*u1.se
+    u1.ub <- result$par[1] + qnorm((1-0.95)/2, lower.tail = FALSE)*u1.se
+    
+    par2 <- rbind(par2, c(result$par, u1.lb, u1.ub, result$convergence))
+    
+  }
+}
+
+```
+
+## The number of unpubished
+
+```{r}
+
+
+
+M <- NULL
+for(sa.rho in rho_vec) {
+  
+  for(sa.pmin in prob_min){
+    
+    
+    rho <- sa.rho
+    P_max <- 0.99
+    P_min <- sa.pmin
+    
+    n_min <- min(ni) 
+    n_max <- max(ni)
+    
+    a1 <- (qnorm(P_max)-qnorm(P_min))/(sqrt(n_max)-sqrt(n_min))
+    a0 <- qnorm(P_max)-a1*sqrt(n_max)
+    M <- c(M, sum((1 - pnorm(a0+a1*sqrt(ni)))/pnorm(a0+a1*sqrt(ni))) )
+    
+  }
+}
+
+
+
+```
+
+
+## HN GLMM without PB
+
+```{r}
+# data <- read.csv("niel-weise21.csv")
+
+
+y1 <- data$y1
+y0 <- data$y0
+yi <- y1+y0
+n1 <- data$n1
+n0 <- data$n0
+ni <- n1+n0
+
+## Find initial values
+llk.HN2 = function(par) {
+  mu = par[1]
+  tau2 = par[2]
+  
+  jmin <- pmax(0, yi-n0)
+  jmax <- pmin(yi, n1)
+  
+  f <- function(theta) {
+    
+  hyper <- NULL
+  
+   for(i in 1:length(yi)){
+   
+    hyper <- c(hyper, dnoncenhypergeom(x = y1[i], n1[i], n0[i], yi[i], exp(theta))* dnorm(theta, mean = mu, sd = sqrt(tau2)))
+ # j <- jmin[i]:jmax[i]
+ #    numerator <- choose(n1[i], y1[i])*choose(n0[i], y0[i])*exp(theta*y1[i])
+ #    denominator <- sum(choose(n1[i], j)*choose(n0[i], yi[i]-j)*exp(theta*j), na.rm = T)
+ #    hyper <- c(hyper, numerator/denominator* dnorm(theta, mean = mu, sd = sqrt(tau2)))
+    }
+    
+    hyper
+
+  }
+  
+  prob.prior = hcubature(f, lowerLimit = -10, upperLimit = 10, fDim = length(yi), tol = 1e-10)$integral
+  
+  l3 = sum(log(prob.prior), na.rm = TRUE)
+  
+  return(-l3)
+}
+
+start = c(-1.3, 0.1)
+result_hn = try(nlminb(start, llk.HN2, 
+                    lower = c(-Inf, 0),
+                    upper = c(Inf, 5)), silent = TRUE)
+
+hes <- numDeriv::hessian(llk.HN2, result_hn$par)
+var.matrix <- solve(hes)
+mu3.se <- sqrt(var.matrix[1,1])
+mu3.lb <- result_hn$par[1] + qnorm((1-0.95)/2, lower.tail = TRUE)*mu3.se
+mu3.ub <- result_hn$par[1] + qnorm((1-0.95)/2, lower.tail = FALSE)*mu3.se
+
+sprintf("theta: %.3f (%.3f, %.3f)", result_hn$par[1], mu3.lb, mu3.ub)
+sprintf("tau^2: %.3f", result_hn$par[2])
+inival3 <- result_hn$par
+```
+
+
+## HN GLMM with PB
+
+```{r}
+par3 <- NULL
+for(sa.rho in rho_vec) {
+  
+  for(sa.pmin in prob_min){
+    
+    
+    rho <- sa.rho
+    # rho <- 0.2
+    P_max <- 0.99
+    # P_min <- 0.2
+    P_min <- sa.pmin
+    
+    llk.HN2sa = function(par) {
+      mu = par[1]
+      tau2 = par[2]
+      tau <- sqrt(tau2)
+      
+      # mu = 0
+      # tau2 = 1
+      # tau = 1
+      
+      n_min <- min(ni)
+      n_max <- max(ni)
+
+      a1 <- -(qnorm(1-P_max)-qnorm(1-P_min))/(sqrt(n_max)-sqrt(n_min))
+      a0 <- -a1*sqrt(n_max)-qnorm(1-P_max)
+
+      
+      f <- function(theta) {
+    
+      hyper <- NULL
+      
+       for(i in 1:length(yi)){
+       
+        hyper <- c(hyper, pnorm((a0+a1*sqrt(ni[i])+rho*(theta-mu)/tau)/sqrt(1-rho^2))/pnorm(a0+a1*sqrt(ni[i]))*
+                     dnoncenhypergeom(x = y1[i], n1[i], n0[i], yi[i], exp(theta))*
+                     dnorm(theta, mean = mu, sd = sqrt(tau2)))
+     
+        }
+        
+        hyper
+    
+      }
+  
+      prob.prior = hcubature(f, lowerLimit = -10, upperLimit = 10, fDim = length(yi), tol = 1e-10)$integral
+      
+      l3 = sum(log(prob.prior), na.rm = TRUE)
+      
+      return(-l3)
+    }
+    
+    result = try(nlminb(inival3, llk.HN2sa,
+                         lower = c(-Inf, 0),
+                         upper = c(Inf, 5)), silent = TRUE)
+    
+    hes <- numDeriv::hessian(llk.HN2sa, result$par)
+    var.matrix <- solve(hes)
+    u1.se <- sqrt(var.matrix[1,1])
+    u1.lb <- result$par[1] + qnorm((1-0.95)/2, lower.tail = TRUE)*u1.se
+    u1.ub <- result$par[1] + qnorm((1-0.95)/2, lower.tail = FALSE)*u1.se
+    
+    par3 <- rbind(par3, c(result$par, u1.lb, u1.ub, result$convergence))
+    
+  }
+}
+
+# par
+```
+
+## Results: Table
+
+
+```{r}
+## BN GLMM
+result2 <- data.frame(
+  M = round(M),
+  rho = rep(rho_vec, each=length(prob_min)), 
+  prob = sprintf("(%.2f, %.2f)", prob_min, rep(0.99, length(prob_min))),
+  mu = sprintf("%.3f (%.3f, %.3f)", par2[,1], par2[,3], par2[,4]),
+  # pi = sprintf("%.3f  (%.3f, %.3f)", plogis(par2[,1]), plogis(par2[,3]), plogis(par2[,4])),
+  tau2 = round(par2[,2],3),
+  cov = par2[,5])
+colnames(result2) <- c("\\#unpublished", "$\\rho$","$(P_{min}, P_{max})$", "$\\theta$ (95\\% CI)", "$\\tau^2$", "cov")
+
+
+## HN GLMM
+result3 <- cbind.data.frame(
+  M = round(M),
+  rho = rep(rho_vec, each=length(prob_min)), 
+  prob = sprintf("(%.2f, %.2f)", prob_min, rep(0.99, length(prob_min))),
+  mu = sprintf("%.3f (%.3f, %.3f)", par3[,1], par3[,3], par3[,4]),
+  # pi = sprintf("%.3f  (%.3f, %.3f)", plogis(par3[,1]), plogis(par3[,3]), plogis(par3[,4])),
+  tau2 = round(par3[,2],3),
+  cov = par3[,5])
+colnames(result3) <- c("\\#unpublished", "$\\rho$","$(P_{min}, P_{max})$", "$\\theta$ (95\\% CI)", "$\\tau^2$", "cov")
+
+tab1 <- cbind(result3[result3$"$\\rho$"==-0.9999,-c(6)], result2[result2$"$\\rho$"==-0.9999,-c(1:3,6)])
+tab0 <- data.frame(
+  M = 0,
+  rho = NA, 
+  prob = "",
+  mu = sprintf("%.3f (%.3f, %.3f)", result_hn$par[1], mu3.lb, mu3.ub),
+  tau2 = round(result_hn$par[2],3),
+  mu1 = sprintf("%.3f (%.3f, %.3f)", result_bn$par[1], mu2.lb, mu2.ub),
+  tau21 = round(result_bn$par[2],3))
+colnames(tab0) <- c("\\#unpublished", "$\\rho$","$(P_{min}, P_{max})$", "$\\theta$ (95\\% CI)", "$\\tau^2$","$\\theta$ (95\\% CI)", "$\\tau^2$")
+
+tab2 <- rbind.data.frame(tab1, tab0)
+
+
+if(save.results)  sink("tab1.tex")
+
+kbl(tab2, 
+    format =  ifelse(save.results, "latex", "html"),
+    longtable = F, 
+    booktabs = T, 
+    digits = 4,
+    align = "r",
+    linesep = c(rep("",8), "\\addlinespace"),
+    escape = FALSE,
+    caption = "The estimations of the proposed method",
+    label = "tab3")%>%
+  add_header_above(c(" " = 3, "HN GLMM" = 2, "BN GLMM" = 2))%>%
+  kable_styling("striped", position = "left")
+
+if(save.results)  sink()
+
+
+m2 <- metabin(y1, n1, y0, n0, data = data, sm = "OR")
+cop2a <- copas(m2)
+
+
+result2cop2a <- cbind.data.frame(
+  M = rev(round(cop2a$N.unpubl)),
+  rho = rev(round(cop2a$rho.slope,3)), 
+  prob = rev(round(cop2a$publprob,3)),
+  mu = rev(sprintf("%.3f  (%.3f, %.3f)", cop2a$TE.slope, cop2a$lower.slope, cop2a$upper.slope)),
+  tau2 = rev(round((cop2a$tau.slope)^2,3)))
+
+colnames(result2cop2a) <- c("\\#unpublished", "$\\rho$","$P_{min}$", "$\\theta$ (95\\% CI)", "$\\tau^2$")
+
+if(save.results)  sink("tab2.tex")
+
+kbl(result2cop2a, 
+    format =  ifelse(save.results, "latex", "html"),
+    longtable = F, 
+    booktabs = T, 
+    digits = 4,
+    align = "r",
+    linesep = c(rep("",5), "\\addlinespace"),
+    escape = FALSE,
+    caption = "The estimation of the Copas-Heckman-type selection model",
+    label = "tab4")%>%
+  kable_styling("striped", position = "left")
+
+if(save.results)  sink()
+```
+
+
+```{r}
+
+df3 <- cbind.data.frame(
+  M = round(M),
+  rho = rep(rho_vec, each=length(prob_min)),
+  minprob = rep(seq(0.1,0.9,0.1), length(rho_vec)),
+  mu = round(par3[,1],3),
+  mulb = round(par3[,3],3),
+  muub = round(par3[,4],3),
+  # OR = round(exp(par3[,1]),3),
+  tau = round(par3[,2],3)
+  )
+
+df2 <- cbind.data.frame(
+  M = round(M),
+  rho = rep(rho_vec, each=length(prob_min)),
+  minprob = rep(seq(0.1,0.9,0.1), length(rho_vec)),
+  mu = round(par2[,1],3),
+  mulb = round(par2[,3],3),
+  muub = round(par2[,4],3),
+  # OR = round(exp(par3[,1]),3),
+  tau = round(par2[,2],3)
+  )
+
+copdf <- data.frame(
+  M = cop2a$N.unpubl,
+  minprob = cop2a$publprob,
+  mu = cop2a$TE.slope, 
+  mulb = cop2a$lower.slope,
+  muub = cop2a$upper.slope)
+
+```
+
+
+## Results: Figure
+
+```{r, fig.height=4, fig.width=12}
+if(save.results) {setEPS(width = 12, height = 4); postscript("fig1.eps")}
+
+par(mfrow = c(1,3))
+
+## rho = -0.9
+df30 <- c(0,NA, 1, result_hn$par[1], mu3.lb, mu3.ub, result_hn$par[2])
+df31 <- rbind(df3[df3$rho==-0.9999, ], df30)
+plot(df31$M, df31$mu, type = "b", 
+     ylim = c(-3,1), xlim = range(df31$M),
+     xlab = "Number of unpublished studies",
+     ylab = "Effect Size (lnOR)")
+lines(df31$M, df31$mulb)
+lines(df31$M, df31$muub)
+abline(h=0, col = "grey")
+title(main = ("A. Proposal (HN-GLMM)"))
+
+df20 <- c(0, NA, 1, result_bn$par[1], mu2.lb, mu2.ub, result_bn$par[2])
+df21 <- rbind(df2[df2$rho==-0.9999, ], df20)
+plot(df21$M, df21$mu, type = "b", 
+     ylim = c(-3,1), xlim = range(df21$M),
+     xlab = "Number of unpublished studies",
+     ylab = "Effect Size (lnOR)")
+lines(df21$M, df21$mulb)
+lines(df21$M, df21$muub)
+abline(h=0, col = "grey")
+title(main = ("B. Proposal (BN-GLMM)"))
+
+plot(copdf$M, copdf$mu, type = "b", 
+     ylim = c(-3,1), xlim = range(df31$M),
+     xlab = "Number of unpublished studies",
+     ylab = "Effect Size (lnOR)")
+lines(copdf$M, copdf$mulb)
+lines(copdf$M, copdf$muub)
+abline(h=0, col = "grey")
+title(main = ("C. Copas-Heckman-type selection model"))
+
+
+par(mfrow = c(1,1))
+if(save.results) dev.off()
+```
+
+
+
+# Example 2
+
+## The standard random-effects model without PB
+
+```{r}
+m1 <- metaprop(event=y1, n=n1, data = data, sm = "Plogit")
+yi <- log(data$y1cc/data$c1cc)
+vi <- 1/data$y1cc + 1/data$c1cc
+
+## Find initial values
+llk.NN2 = function(par) {
+  mu = par[1]
+  tau2 = par[2]
+  
+  llk <- dnorm(yi, mean = mu, sd = sqrt(vi + tau2), log = T)
+  
+  l3 = sum(llk, na.rm = TRUE)
+  
+  return(-l3)
+}
+
+start = c(-1, 0.1)
+result_nn2 = try(nlminb(start, llk.NN2,
+                    lower = c(-Inf, 0),
+                    upper = c(Inf, Inf)), silent = TRUE)
+
+hes <- numDeriv::hessian(llk.NN2, result_nn2$par)
+var.matrix <- solve(hes)
+mu01.se <- sqrt(var.matrix[1,1])
+mu01.lb <- result_nn2$par[1] + qnorm((1-0.95)/2, lower.tail = TRUE)*mu01.se
+mu01.ub <- result_nn2$par[1] + qnorm((1-0.95)/2, lower.tail = FALSE)*mu01.se
+
+sprintf("theta: %.3f (%.3f, %.3f)", result_nn2$par[1], mu01.lb, mu01.ub)
+sprintf("tau^2: %.3f", result_nn2$par[2])
+
+```
+
+## BN GLMM without PB
+
+```{r}
+
+yi <- data$y1
+ni <- data$n1
+
+## Find initial values
+llk.BN1 = function(par) {
+  mu = par[1]
+  tau2 = par[2]
+  
+  f <- function(theta) dbinom(yi, ni, prob = plogis(theta)) * dnorm(theta, mean = mu, sd = sqrt(tau2))
+  
+  prob.prior <- hcubature(f, lowerLimit = -Inf, upperLimit = Inf, fDim = length(yi))$integral
+  
+  l3 = sum(log(prob.prior), na.rm = TRUE)
+  
+  return(-l3)
+}
+
+start = c(-1, 0.1)
+result_bn2 = try(nlminb(start, llk.BN1,
+                    lower = c(-Inf, 0),
+                    upper = c(Inf, Inf)), silent = TRUE)
+
+hes <- numDeriv::hessian(llk.BN1, result_bn2$par)
+var.matrix <- solve(hes)
+mu1.se <- sqrt(var.matrix[1,1])
+mu1.lb <- result_bn2$par[1] + qnorm((1-0.95)/2, lower.tail = TRUE)*mu1.se
+mu1.ub <- result_bn2$par[1] + qnorm((1-0.95)/2, lower.tail = FALSE)*mu1.se
+
+inival1 <- result_bn2$par
+sprintf("theta: %.3f (%.3f, %.3f)", result_bn2$par[1], mu1.lb, mu1.ub)
+sprintf("tau^2: %.3f", result_bn2$par[2])
+
+```
+
+
+## BN GLMM with PB
+
+```{r}
+par1 <- NULL
+for(sa.rho in rho_vec) {
+  
+  for(sa.pmin in prob_min){
+    
+    rho <- sa.rho
+    P_max <- 0.99
+    P_min <- sa.pmin
+    
+    llk.BN1sa = function(par) {
+      mu = par[1]
+      tau2 = par[2]
+      tau <- sqrt(tau2)
+      
+      f <- function(theta) {
+        
+        n_min <- min(ni) 
+        n_max <- max(ni)
+        
+        a1 <- (qnorm(P_max)-qnorm(P_min))/(sqrt(n_max)-sqrt(n_min))
+        a0 <- qnorm(P_max)-a1*sqrt(n_max)
+        
+        pnorm((a0+a1*sqrt(ni)+rho*(theta-mu)/tau)/sqrt(1-rho^2))/pnorm(a0+a1*sqrt(ni)) * 
+          dbinom(yi, ni, prob = plogis(theta)) * 
+          dnorm(theta, mean = mu, sd = sqrt(tau2))
+    
+        
+      }
+      
+      prob.prior = cubature::hcubature(f, lowerLimit = -Inf, upperLimit = Inf, fDim = length(yi), tol = 1e-10)$integral
+      
+      l3 = sum(log(prob.prior), na.rm = TRUE)
+      
+      return(-l3)
+    }
+    
+    result = nlminb(inival1, llk.BN1sa,
+                    lower = c(-Inf, 0), upper = c(Inf, 5))
+    
+    hes <- numDeriv::hessian(llk.BN1sa, result$par)
+    var.matrix <- solve(hes)
+    u1.se <- sqrt(var.matrix[1,1])
+    u1.lb <- result$par[1] + qnorm((1-0.95)/2, lower.tail = TRUE)*u1.se
+    u1.ub <- result$par[1] + qnorm((1-0.95)/2, lower.tail = FALSE)*u1.se
+    
+    par1 <- rbind(par1, c(result$par, u1.lb, u1.ub, result$convergence))
+    
+  }
+}
+```
+
+## Exapme 1 Table
+
+```{r}
+
+result1 <- cbind.data.frame(
+  M = round(M),
+  rho = rep(rho_vec, each=length(prob_min)), 
+  prob = sprintf("(%.2f, %.2f)", prob_min, rep(0.99, length(prob_min))),
+  mu = sprintf("%.3f  (%.3f, %.3f)", par1[,1], par1[,3], par1[,4]),
+  # pi = sprintf("%.3f  (%.3f, %.3f)", plogis(par1[,1]), plogis(par1[,3]), plogis(par1[,4])),
+  tau2 = round(par1[,2],3),
+  cov = par1[,5])
+colnames(result1) <- c("\\#unpublished", "$\\rho$","$(P_{min}, P_{max})$", "$\\theta$ (95\\% CI)", "$\\tau^2$", "cov")
+tab3 <- result1[result1$"$\\rho$"==-0.9999, -6]
+
+
+if(save.results)  sink("tab3.tex")
+
+kbl(tab3, 
+    format =  ifelse(save.results, "latex", "html"),
+    longtable = F, 
+    booktabs = T, 
+    digits = 4,
+    align = "r",
+    linesep = c(rep("",8), "\\addlinespace"),
+    escape = FALSE,
+    caption = "Example 1: the estimation from the proposed method",
+    label = "tab1")%>%
+  kable_styling("striped", position = "left")
+
+if(save.results)  sink()
+
+
+
+m1 <- metaprop(y1, n1, data = data, sm = "Plogit")
+cop1a <- copas(m1)
+
+
+result1cop1a <- cbind.data.frame(
+  M = rev(round(cop1a$N.unpubl)),
+  rho = rev(round(cop1a$rho.slope,3)), 
+  prob = rev(round(cop1a$publprob,3)),
+  mu = rev(sprintf("%.3f  (%.3f, %.3f)", cop1a$TE.slope, cop1a$lower.slope, cop1a$upper.slope)),
+  tau2 = rev(round((cop1a$tau.slope)^2,3)))
+
+colnames(result1cop1a) <- c("\\#unpublished", "$\\rho$","$P_{max}$", "$\\theta$ (95\\% CI)", "$\\tau^2$")
+
+if(save.results)  sink("tab4.tex")
+
+kbl(result1cop1a, 
+    format =  ifelse(save.results, "latex", "html"),
+    longtable = F, 
+    booktabs = T, 
+    digits = 4,
+    align = "r",
+    linesep = c(rep("",5), "\\addlinespace"),
+    escape = FALSE,
+    caption = "The estimation from the Copas selection method",
+    label = "tab2")%>%
+  kable_styling("striped", position = "left")
+
+if(save.results)  sink()
+```
+
+## Exapme 2 Figure
+
+```{r}
+df1 <- cbind.data.frame(
+  M = round(M),
+  rho = rep(rho_vec, each=length(prob_min)),
+  minprob = rep(seq(0.1,0.9,0.1), length(rho_vec)),
+  mu = round(par1[,1],3),
+  mulb = round(par1[,3],3),
+  muub = round(par1[,4],3),
+  # OR = round(exp(par1[,1]),3),
+  tau = round(par1[,2],3)
+  )
+
+copdf <- data.frame(
+  M = round(cop1a$N.unpubl),
+  mu = cop1a$TE.slope, 
+  mulb = cop1a$lower.slope,
+  muub = cop1a$upper.slope)
+```
+
+```{r, fig.height=6, fig.width=12}
+if(save.results) {setEPS(width = 12, height = 6); postscript("fig2.eps")}
+par(mfrow = c(1,2))
+## rho = -0.9
+df0 <- c(0, NA, 1, inival1[1], mu1.lb, mu1.ub,inival1[2])
+df11 <- rbind(df1[df1$rho==-0.9999, ], df0)
+plot(df11$M, df11$mu, type = "b", 
+     ylim = c(-6, 0), xlim = (range(df11$M)),
+     xlab = "Number of unpublished studies",
+     ylab = "Effect Size (logit-proportion)")
+lines(df11$M, df11$mulb)
+lines(df11$M, df11$muub)
+abline(h=0, col = "grey")
+title(main = ("A. Proposal (BN-GLMM)"))
+
+plot(copdf$M, copdf$mu, type = "b",
+     ylim = c(-6, 0), xlim = range(df11$M),
+     xlab = "Number of unpublished studies",
+     ylab = "Effect Size (logit-proportion)")
+lines(copdf$M, copdf$mulb)
+lines(copdf$M, copdf$muub)
+abline(h=0, col = "grey")
+title(main = ("B. Copas-Heckman-type selection model"))
+
+
+par(mfrow = c(1,1))
+if(save.results) dev.off()
+```
+
+
+
+
