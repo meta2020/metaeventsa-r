@@ -26,5 +26,5 @@ If they are not installed, please install from R CRAN `install.packages("package
 
 - [Example in the supplementary file](plot-supp.R)
 
-R codes of the models with/without publication bias are in folder "Rfunc"; 
-the estimated results are saved in R data in folder "Rdata".
+R codes of the models with/without publication bias are in folder [Rfunc](Rfunc/); 
+the estimated results are saved in R data in folder [Rdata](Rdata/).
