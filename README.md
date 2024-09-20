@@ -1,4 +1,4 @@
-## [Reproducible R Codes] 
+## [Reproducible results with R codes] 
 
 # Copas-Heckman-type sensitivity analysis for publication bias in rare-event meta-analysis under the framework of generalized linear mixed model
 
