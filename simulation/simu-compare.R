@@ -20,7 +20,7 @@ library(metafor)
 s = c(10, 25, 50) ## #of population studies
 set = expand.grid(
   t.theta = c(-0.7,0.7), ## true theta
-  t.tau = c(0.15, 0.3, 0.6), ## true tau  
+  t.tau = c(0.05, 0.15, 0.6), ## true tau  
   # t.rho = c(-0.8,0.8),
   n.median = c(50, 100), ## median number of total subjects
   grp.r = c(1, 2), ##group ratio: treat:control
@@ -45,7 +45,7 @@ for(S in s[1]){
 for(i in 1){ 
   DATA = foreach(r=1:1000, .combine = rbind,.packages=c("tidyr","mnormt","dplyr"),.errorhandling="remove")  %dorng%  {
   
-    S = 25
+    S = 100
     i = 1
     pmax = set.gr$pmax[i]
     pmin = set.gr$pmin[i]
@@ -72,18 +72,18 @@ for(i in 1){
 
     ## set parset list
     parset.nn = list(
-          mu.bound = 3, 
-          tau.bound = 2,
+          mu.bound = 2, 
+          tau.bound = 1,
           eps = 1e-3,
-          init.vals = c(set.gr$t.theta[i],set.gr$t.tau[i])+runif(2,-0.3,0.3)
+          init.vals = c(set.gr$t.theta[i],set.gr$t.tau[i])
           )
     parset.glmm = list(
-          mu.bound = 3,
-          tau.bound = 2,
+          mu.bound = 2,
+          tau.bound = 1,
           eps = 1e-3,
           integ.limit = 10, 
           cub.tol = 1e-5,
-          init.vals = c(set.gr$t.theta[i],set.gr$t.tau[i])+runif(2,-0.3,0.3)
+          init.vals = c(set.gr$t.theta[i],set.gr$t.tau[i])
           )
     ## estimation without/with PB: NN, HN-GLMM, BN-GLMM on pdata and sdata
     fit.nn = lapply(
@@ -111,25 +111,25 @@ for(i in 1){
     pbn = c(fit.bn[[1]]$mu, fit.bn[[1]]$tau, rho=rep(NA,2), 
       cv = ifelse(is.null(fit.bn[[1]]$opt$convergence), NA, fit.bn[[1]]$opt$convergence))
     
-     = c(fit.bn[[2]]$mu, fit.bn[[2]]$tau, rho=rep(NA,2), 
+    sbn = c(fit.bn[[2]]$mu, fit.bn[[2]]$tau, rho=rep(NA,2), 
       cv = ifelse(is.null(fit.bn[[2]]$opt$convergence), NA, fit.bn[[2]]$opt$convergence))
       
     ## set parset list
     parset.c20 = list(
-      mu.bound = 3,
-      tau.bound = 2,
+      mu.bound = 2,
+      tau.bound = 1,
       estimate.rho = TRUE, 
       eps = 1e-3,
-      init.vals = c(set.gr$t.theta[i],set.gr$t.tau[i])+runif(2,-0.3,0.3)
+      init.vals = c(set.gr$t.theta[i],set.gr$t.tau[i])
     )
     parset.prop = list(
-      mu.bound = 3,
-      tau.bound = 2,
+      mu.bound = 2,
+      tau.bound = 1,
       estimate.rho = TRUE, 
       eps = 1e-3,
       integ.limit = 10, 
       cub.tol = 1e-5,
-      init.vals = c(set.gr$t.theta[i],set.gr$t.tau[i])+runif(2,-0.3,0.3)
+      init.vals = c(set.gr$t.theta[i],set.gr$t.tau[i])
     )
     ## adjust for PB: COPAS2000, COPAS_HNGLMM, COPAS_BNGLMM
     fit.c20 = suppressWarnings(with(sdata, COPAS2000(yi, vi, Psemax =pmin, Psemin = pmax,
