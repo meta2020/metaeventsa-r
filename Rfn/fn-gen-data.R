@@ -17,12 +17,8 @@ gen.data1 = function(
   n_min=200,n_max=400,y_min=10,y_max=20,
   Pnmax = 0.99, Pnmin = 0.5){
 
-  # n0i = runif( s, min = n_min, max = n_max ) %>% round()
-  # n1i = runif( s, min = n_min, max = n_max ) %>% round()
-  n = round(rlnorm(s,log(n.med),1))
-  n = ifelse(n<10,10,n)
-  n0i = rbinom(s, n, 1 / (1 + gr)) # decides for each observation
-  n1i = n - n0i
+  n0i = runif( s, min = n_min, max = n_max ) %>% round()
+  n1i = runif( s, min = n_min, max = n_max ) %>% round()
 
   sigma=matrix(c(tau^2,rho*tau,rho*tau,1),2,2)
   m = MASS::mvrnorm(s,c(theta,0),sigma)
@@ -35,7 +31,7 @@ gen.data1 = function(
   y1i = rbinom( s, size = yi, prob = study.pi ) 
   y0i = yi- y1i 
   
-  p.dt = data.frame(y1=y1i,y0=y0i,n1=n1i,n0=n0i)
+  p.dt = data.frame(y1=y1i,y0=y0i,n1=n1i,n0=n0i,n=n1i+n0i)
   
   ## selective process
   ni=n0i+n1i
@@ -50,6 +46,7 @@ gen.data1 = function(
   p.dt$z=1*(zi>0)
   
   pz=pnorm(a0+a1*sqrt(ni))
+  p.dt$pz=pz
   p=mean(pz)
   
   s.dt = p.dt[p.dt$z>0,]
