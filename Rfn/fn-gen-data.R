@@ -26,7 +26,7 @@ gen.data1 = function(
   deltai=m[,2]
 
   yi  = runif( s, min = y_min, max = y_max ) %>% round()
-  study.pi = plogis( log(n1i/n0i) + thetai )
+  study.pi = exp(log(n1i/n0i) + thetai)/(1+exp(log(n1i/n0i) + thetai))
   
   y1i = rbinom( s, size = yi, prob = study.pi ) 
   y0i = yi- y1i 
@@ -76,7 +76,7 @@ gen.data1 = function(
 #' @param Pnmax probabilities of publishing a study with maximum subjects
 #' @param Pnmin probabilities of publishing a study with minimum subjects
 #' 
-gen.data3 = function(
+gen.data2 = function(
     s,theta,tau,rho,
     p0,n.med,gr,
     Pnmax, Pnmin) {
@@ -97,10 +97,11 @@ gen.data3 = function(
   ORi = exp(thetai)
 
   ## true p0
-  mu0 = qlogis(p0) ## logit(p0)
+  mu0 = qlogis(p0) ## logit(p0) baseline
   
   ## empirical logit(p0i)
   logitp0i = rnorm(s, mu0, tau^2 / sqrt(2))
+  # logitp1i = rnorm(s, mu0+theta, tau^2 / sqrt(2))
   
   ## empirical logit(p1i): thetai = logitp1i-logitp0i
   logitp1i = thetai+logitp0i
@@ -138,5 +139,54 @@ gen.data3 = function(
   return(list(p.dt=p.dt,s.dt=s.dt,
               m=M, e.m=M.e,
               a1=a1,a0=a0,p=p))
+}
+
+
+##
+## From Ao
+##
+
+
+gen.data3 = function(
+    s,theta,tau,rho,
+    p0,n.med,gr,p0,
+    Pnmax, Pnmin){
+  # M = param [1]
+  # tlogor = param [3]
+  # ttau = param [2]
+  # alpha = param [4]
+  # beta = param [5]
+  # 
+   s=10
+   theta=-0.7
+   tau=0.05
+   p0=0.05
+   n.med=10
+   gr=1
+  # rbindlist(lapply(1:1000,function(i){
+    tlogor.i  = rnorm( s, theta, tau ) # empirical logORi
+    tOR.i = exp( tlogor.i ) # empirical odds ratio
+    #----------generate a b c d of OR,then calculate se----------------#
+    # Pc                   = runif(M,0.2,0.9) # Probability of event in the control group
+    Pci = plogis(rnorm(s, qlogis(p0), tau^2 / sqrt(2)))
+    m                    = tOR.i * Pci / ( 1 - Pci )
+    Pti                   = m / ( 1 + m )   # calculation of probability of event in the experimental group
+    # u                    = 2*round(rlnorm(s,5,1)/2,0) # total sample size
+    u = round(rlnorm(s,log(n.med),1))
+    nc= rbinom(s, u, 1 / (1 + gr))
+    nt= u-nc
+    # nt  = ifelse(u<20,10, 1/(1 + gr))
+
+    all.dat = vapply(1:s,function(i){
+      a = sum(rbinom(nt[i],1,Pti[i]))
+      b = nt[i]
+      c = sum(rbinom(nc[i],1,Pci[i]))
+      d = nc[i]
+      c(a,b,c,d)
+      },c(y1i=0,n1i=0,y0i=0,n0i=0))%>%t()%>%data.frame()
+    
+    all.dat[,wi:=.(pnorm(alpha+beta*logOR/se))]
+    all.dat[,zi:=.(rbinom (M,1,wi))]
+    data.table(all.dat[,.(logOR=logOR,se=se,zi=zi,ni=ni)],t(param),i))
 }
 

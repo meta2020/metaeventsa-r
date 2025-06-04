@@ -20,7 +20,7 @@ library(metafor)
 s = c(10, 25, 50) ## #of population studies
 set = expand.grid(
   t.theta = c(-0.7,0.7), ## true theta
-  t.tau = c(0.05, 0.15, 0.6), ## true tau  
+  t.tau = c(0.5, 0.15, 0.6), ## true tau  
   # t.rho = c(-0.8,0.8),
   n.median = c(50, 100), ## median number of total subjects,
   grp.r = c(1, 2), ##group ratio: treat:control
@@ -36,7 +36,7 @@ set$ymax = ifelse(set$n.median==50, 10, 20)
 
 set.gr1 = set[set$grp.r==1,]
 set.gr2 = set[set$grp.r==2,]
-set.gr = set.gr1
+set.gr = set.gr1[1,]
 
 ## ----------
 ## SIMULATION 
@@ -48,12 +48,7 @@ set.seed(2024)
 for(S in s[1]){
 for(i in 1){ 
   DATA = foreach(r=1:1000, .combine = rbind,.packages=c("tidyr","mnormt","dplyr"),.errorhandling="remove")  %dorng%  {
-  
-    S = 20
-
-    i = 1
     
-    set.gr = set.gr1[3,]
     pmax = set.gr$pmax
     pmin = set.gr$pmin
     
