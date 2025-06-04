@@ -32,21 +32,21 @@ set$t.rho = ifelse(set$t.theta>0, 0.8, -0.8)
 
 set.gr1 = set[set$grp.r==1,]
 set.gr2 = set[set$grp.r==2,]
-
+set.gr = set.gr1
 ## ----------
 ## SIMULATION 
 ncores = parallel::detectCores()-1
 cl = parallel::makeCluster(ncores, "SOCK")
 doSNOW::registerDoSNOW(cl)
 
-set.gr = set.gr1
+
 
 set.seed(2024)
 for(S in s[1]){
 for(i in 1){ 
   DATA = foreach(r=1:1000, .combine = rbind,.packages=c("tidyr","mnormt","dplyr"),.errorhandling="remove")  %dorng%  {
   
-    S = 100
+    S = 20
     i = 1
     pmax = set.gr$pmax[i]
     pmin = set.gr$pmin[i]
@@ -56,8 +56,8 @@ for(i in 1){
       theta=set.gr$t.theta[i],
       tau=set.gr$t.tau[i],
       rho=set.gr$t.rho[i],
-      n_min=200,n_max=400,
-      y_min=10,y_max=20,
+      n_min=10,n_max=50,
+      y_min=5,y_max=10,
       Pnmax = pmax, Pnmin = pmin)
 
     
