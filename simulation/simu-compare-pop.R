@@ -69,11 +69,11 @@ for(i in 1){
     
     plist3 = gen.data3(
       s=S,
-      theta=set.gr$t.theta[i],tau=set.gr$t.tau[i],
-      rho=set.gr$t.rho[i],
-      p0 = set.gr$p0[i],
-      n.med =set.gr$n.median[i],#set.val$n0.median,
-      gr=set.gr$grp.r[i],
+      theta=set.gr$t.theta,tau=set.gr$t.tau,
+      rho=set.gr$t.rho,
+      p0 = set.gr$p0,
+      n.med =set.gr$n.median,#set.val$n0.median,
+      gr=set.gr$grp.r,
       Pnmax=pmax,Pnmin=pmin)
     
     
