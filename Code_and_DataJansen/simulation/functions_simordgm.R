@@ -30,7 +30,7 @@ generate_data <- function(theta, tau, p0 = NA, n, gr, k, dgm = "pRandom") {
 
 
   if (dgm == "pRandom") {
-    p1_init <- p0 * exp(theta) / (1 - p0 + p0 * exp(theta))
+    p1_init <- p0 * exp(theta) / ( 1 - p0 + p0 * exp(theta))
 
     mu0 <- log(p0 / (1 - p0))
     mu1 <- log(p1_init / (1 - p1_init))

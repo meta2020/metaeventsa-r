@@ -12,30 +12,42 @@
 #' @param Pnmax probabilities of publishing a study with maximum subjects
 #' @param Pnmin probabilities of publishing a study with minimum subjects
 #' 
+#' s=10
+#' n.med=10
+#' gr=1
+#' tau=0.5
+#' rho=0.8
+#' theta=-0.7
 gen.data1 = function(
-  s,theta,tau,rho,
-  n_min=200,n_max=400,y_min=10,y_max=20,
+  s, n.med, gr,
+  theta,tau,rho,
+  y_min=10,y_max=20,
   Pnmax = 0.99, Pnmin = 0.5){
 
-  n0i = runif( s, min = n_min, max = n_max ) %>% round()
-  n1i = runif( s, min = n_min, max = n_max ) %>% round()
+  # n0i = runif( s, min = n_min, max = n_max ) %>% round()
+  # n1i = runif( s, min = n_min, max = n_max ) %>% round()
+  
+  n = round(rlnorm(s,log(n.med),1)) # total #subjects
+  n = ifelse(n<10,10,n)
+  n0i = rbinom(s, n, 1 / (1 + gr)) # #control subjects
+  n1i = n - n0i # #treatment subjects
 
+  # generate deltai and thetai
   sigma=matrix(c(tau^2,rho*tau,rho*tau,1),2,2)
   m = MASS::mvrnorm(s,c(theta,0),sigma)
   thetai=m[,1]
   deltai=m[,2]
 
-  yi  = runif( s, min = y_min, max = y_max ) %>% round()
-  study.pi = exp(log(n1i/n0i) + thetai)/(1+exp(log(n1i/n0i) + thetai))
+  # generate yi
+  yi  = runif(s, min = y_min, max = y_max) %>% round()
+  study.pi = plogis(log(n1i/n0i) + thetai)
   
-  y1i = rbinom( s, size = yi, prob = study.pi ) 
+  y1i = rbinom(s, size = yi, prob = study.pi) 
   y0i = yi- y1i 
-  
-  p.dt = data.frame(y1=y1i,y0=y0i,n1=n1i,n0=n0i,n=n1i+n0i)
+  ni=n0i+n1i
+  p.dt = data.frame(y1=y1i,y0=y0i,n1=n1i,n0=n0i,n=ni)
   
   ## selective process
-  ni=n0i+n1i
-  
   n_min=min(ni) 
   n_max=max(ni)
   
@@ -53,7 +65,8 @@ gen.data1 = function(
   M=sum((1-pz)/pz)%>%round()
   M.e = s-sum(p.dt$z)
   
-  return(list(p.dt=p.dt,s.dt=s.dt,
+  return(list(
+    p.dt=p.dt,s.dt=s.dt,
     m=M, e.m=M.e,
     a1=a1,a0=a0,p=p))
   
@@ -146,26 +159,30 @@ gen.data2 = function(
 ## From Ao
 ##
 
-
+gen.data3(
+    s=10, n.med=10, gr=1,
+    theta=-0.7,tau=0.01,rho=0.8,
+    p0=0.05,
+    Pnmax=0.99, Pnmin=0.5
+    )
 gen.data3 = function(
-    s,theta,tau,rho,
-    p0,n.med,gr,p0,
+    s, n.med, gr,
+    theta,tau,rho,
+    p0,
     Pnmax, Pnmin){
-  # M = param [1]
-  # tlogor = param [3]
-  # ttau = param [2]
-  # alpha = param [4]
-  # beta = param [5]
-  # 
-   s=10
-   theta=-0.7
-   tau=0.05
-   p0=0.05
-   n.med=10
-   gr=1
-  # rbindlist(lapply(1:1000,function(i){
-    tlogor.i  = rnorm( s, theta, tau ) # empirical logORi
-    tOR.i = exp( tlogor.i ) # empirical odds ratio
+  
+    n = round(rlnorm(s,log(n.med),1)) # total #subjects
+    n = ifelse(n<10,10,n)
+    n0i = rbinom(s, n, 1 / (1 + gr)) # #control subjects
+    n1i = n - n0i # #treatment subjects
+    
+    ## thetai=log(ORi) and deltai 
+    sigma=matrix(c(tau^2,rho*tau,rho*tau,1),2,2)
+    m = MASS::mvrnorm(s,c(theta,0),sigma)
+    thetai=m[,1]
+    deltai=m[,2]
+  
+    tOR.i = exp(thetai) # empirical odds ratio
     #----------generate a b c d of OR,then calculate se----------------#
     # Pc                   = runif(M,0.2,0.9) # Probability of event in the control group
     Pci = plogis(rnorm(s, qlogis(p0), tau^2 / sqrt(2)))
@@ -185,8 +202,33 @@ gen.data3 = function(
       c(a,b,c,d)
       },c(y1i=0,n1i=0,y0i=0,n0i=0))%>%t()%>%data.frame()
     
-    all.dat[,wi:=.(pnorm(alpha+beta*logOR/se))]
-    all.dat[,zi:=.(rbinom (M,1,wi))]
-    data.table(all.dat[,.(logOR=logOR,se=se,zi=zi,ni=ni)],t(param),i))
+    ni = all.dat$n1i+all.dat$n0i
+    p.dt = data.frame(y1=all.dat$y1i,y0=all.dat$y0i,
+                      n1=all.dat$n1i,n0=all.dat$n0i,n=ni)
+    
+    ## selective process
+    n_min=min(ni) 
+    n_max=max(ni)
+    
+    a1=(qnorm(Pnmax)-qnorm(Pnmin))/(sqrt(n_max)-sqrt(n_min))
+    a0=qnorm(Pnmax)-a1*sqrt(n_max)
+    
+    zi=a0+a1*sqrt(ni)+deltai
+    p.dt$z=1*(zi>0)
+    
+    pz=pnorm(a0+a1*sqrt(ni))
+    p.dt$pz=pz
+    p=mean(pz)
+    
+    s.dt = p.dt[p.dt$z>0,]
+    M=sum((1-pz)/pz)%>%round()
+    M.e = s-sum(p.dt$z)
+    
+    return(list(
+      p.dt=p.dt,s.dt=s.dt,
+      m=M, e.m=M.e,
+      a1=a1,a0=a0,p=p))
+    
+    
 }
 

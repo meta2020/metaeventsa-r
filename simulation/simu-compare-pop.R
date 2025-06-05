@@ -27,10 +27,8 @@ set = expand.grid(
   pmax = 0.99,
   pmin = 0.6
 ) %>% arrange(t.theta,n.median)
-set$p0 = ifelse(set$n.median==50, 0.05,0.1)
+set$p0 = ifelse(set$n.median==50, 0,0.1)
 set$t.rho = ifelse(set$t.theta>0, 0.8, -0.8)
-set$nmin = ifelse(set$n.median==50, 10, 20)
-set$nmax = ifelse(set$n.median==50, 100,200)
 set$ymin = ifelse(set$n.median==50, 0, 0)
 set$ymax = ifelse(set$n.median==50, 10, 20)
 
@@ -48,28 +46,27 @@ set.seed(2024)
 for(S in s[1]){
 for(i in 1){ 
   DATA = foreach(r=1:1000, .combine = rbind,.packages=c("tidyr","mnormt","dplyr"),.errorhandling="remove")  %dorng%  {
-    
+    S=100
     pmax = set.gr$pmax
     pmin = set.gr$pmin
     
     plist1 = gen.data1(
-      s=S,
+      s=S, n.med=set.gr$n.median, gr=set.gr$grp.r,
       theta=set.gr$t.theta,
       tau=set.gr$t.tau,
       rho=set.gr$t.rho,
-      n_min=set.gr$nmin,n_max=set.gr$nmax,
       y_min=set.gr$ymin,y_max=set.gr$ymax,
       Pnmax = pmax, Pnmin = pmin)
 
     
     plist3 = gen.data3(
-      s=S,
-      theta=set.gr$t.theta,tau=set.gr$t.tau,
+      s=S, n.med=set.gr$n.median, gr=set.gr$grp.r,
+      theta=set.gr$t.theta,
+      tau=set.gr$t.tau,
       rho=set.gr$t.rho,
       p0 = set.gr$p0,
-      n.med =set.gr$n.median,#set.val$n0.median,
-      gr=set.gr$grp.r,
-      Pnmax=pmax,Pnmin=pmin)
+      Pnmax=pmax,Pnmin=pmin
+      )
     
     
     ## population data and selective data
