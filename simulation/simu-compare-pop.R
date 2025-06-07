@@ -20,10 +20,10 @@ library(metafor)
 s = c(10, 50) ## #of population studies
 set = expand.grid(
   t.theta = c(-0.7), ## true theta
-  t.tau = c(0.05, 0.5, 1), ## true tau  
-  t.rho = c(-0.8,0.8),
+  t.tau = sqrt(c(0.05, 0.3, 0.5)), ## true tau  
+  t.rho = c(0.8), ## for population data rho does not matter the estimates
   n.median = c(50), ## median number of total subjects,
-  grp.r = c(1, 2), ##group ratio: treat:control
+  grp.r = c(1, 3), ##group ratio: treat:control
   pmax = 0.99,
   pmin = 0.6
 ) %>% arrange(t.theta,n.median)
@@ -88,14 +88,7 @@ for(i in 1:nrow(set)){
           eps = 1e-3,
           init.vals = c(0.1,0.01)
           )
-    parset.glmm = list(
-          mu.bound = 1,
-          tau.bound = 1,
-          eps = 1e-3,
-          integ.limit = 5, 
-          cub.tol = 1e-5,
-          init.vals = c(0.1,0.01)
-          )
+    
     ## estimation without/with PB: NN, HN-GLMM, BN-GLMM on pdata and sdata
     fit.nn = lapply(
       list(lpdata1,lpdata2), 
@@ -107,6 +100,17 @@ for(i in 1:nrow(set)){
     pnn2 = c(fit.nn[[2]]$mu, fit.nn[[2]]$tau, 
       cv = ifelse(is.null(fit.nn[[2]]$opt$convergence), NA, fit.nn[[2]]$opt$convergence))
 
+    ## initial values for GLMM
+    parset.glmm = list(
+      mu.bound = 1,
+      tau.bound = 1.5,
+      eps = 1e-3,
+      integ.limit = 5, 
+      cub.tol = 1e-5,
+      init.vals = c(0.1,0.01)
+    )
+    
+    
     fit.hn = lapply(
       list(lpdata1,lpdata2), 
       function(data) with(data, HN_GLMM(y0, y1, n0, n1, 
@@ -139,9 +143,73 @@ for(i in 1:nrow(set)){
 
 parallel::stopCluster(cl)
 
-# ## summary
-# load("res/data-sen-2-S15.RData")
-# DATA[DATA[,8]==1,]=NA
-# rr = dim(DATA)[1]/9
-# group_indices = rep(1:9, each = rr)
-# rowsum(DATA, group_indices, na.rm = T)/rr
+##
+# par(mfrow=c(2,2))
+# ## summary1
+# sum.res.all = NULL
+# for(S in s[1]){
+#   for(i in 1:12){ 
+#     load(paste0("res-pop/data-set-",i,"-S",S,".RData"))
+#     
+#     DATA1=DATA%>%t()
+#     dim(DATA1) = c(6,6,1000)
+#     
+#     ## remove nonconverged values
+#     for(i in 1:1000){
+#       DATA1[,,i][1:5,(DATA1[,,i][6,]!=0)]=NA
+#     }
+#     
+#     sum.res = apply(DATA1, c(1, 2), function(x) mean(x, na.rm=T))
+#     colnames(sum.res) = c("pnn1","pnn2","phn1","phn2","pbn1","pbn2")
+#     rownames(sum.res) = c("mu","mu.se","tau","tau.se","tau2","cv")
+#     sum.res.all=rbind(sum.res.all, sum.res)
+# 
+#   }}
+# 
+# ## data generating 1
+# df.mu = sum.res.all[seq(1, nrow(sum.res.all), by = 6), c(1,3,5)]-(-0.7)
+# matplot(df.mu, type="b")
+# abline(h=0)
+# title("S=10 and data generating 1")
+# 
+# ## data generating 2
+# df.mu = sum.res.all[seq(1, nrow(sum.res.all), by = 6), c(2,4,6)]-(-0.7)
+# matplot(df.mu, type="b")
+# abline(h=0)
+# title("S=10 and data generating 2")
+# 
+# 
+# ## summary2
+# sum.res.all = NULL
+# for(S in s[2]){
+#   for(i in 1:12){ 
+#     load(paste0("res-pop/data-set-",i,"-S",S,".RData"))
+#     
+#     DATA1=DATA%>%t()
+#     dim(DATA1) = c(6,6,1000)
+#     
+#     ## remove nonconverged values
+#     for(i in 1:1000){
+#       DATA1[,,i][1:5,(DATA1[,,i][6,]!=0)]=NA
+#     }
+#     
+#     sum.res = apply(DATA1, c(1, 2), function(x) mean(x, na.rm=T))
+#     colnames(sum.res) = c("pnn1","pnn2","phn1","phn2","pbn1","pbn2")
+#     rownames(sum.res) = c("mu","mu.se","tau","tau.se","tau2","cv")
+#     sum.res.all=rbind(sum.res.all, sum.res)
+#     
+#   }}
+# 
+# ## data generating 1
+# df.mu = sum.res.all[seq(1, nrow(sum.res.all), by = 6), c(1,3,5)]-(-0.7)
+# matplot(df.mu, type="b")
+# abline(h=0)
+# title("S=50 and data generating 1")
+# 
+# ## data generating 2
+# df.mu = sum.res.all[seq(1, nrow(sum.res.all), by = 6), c(2,4,6)]-(-0.7)
+# matplot(df.mu, type="b")
+# abline(h=0)
+# title("S=50 and data generating 2")
+# 
+# par(mfrow=c(1,1))
