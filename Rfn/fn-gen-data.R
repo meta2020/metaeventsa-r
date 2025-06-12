@@ -179,7 +179,8 @@ gen.data2 = function(
     deltai=m[,2]
   
     ORi = exp(thetai) # empirical odds ratio
-    pi0 = plogis(rnorm(s, qlogis(p0), tau^2 / sqrt(2))) # prob of control in study i
+    pi0 = runif(s,0.2,0.9)
+    # pi0 = plogis(rnorm(s, qlogis(p0), tau^2 / sqrt(2))) # prob of control in study i
     m = ORi * pi0 / ( 1 - pi0 )
     pi1 = m / ( 1 + m )   # prob of event in study i
 
