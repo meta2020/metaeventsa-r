@@ -8,7 +8,7 @@ library(doRNG)
 library(metafor)
 
 s = c(10, 50) ## #of population studies
-
+rtimes=200
 par(mfrow=c(2,2))
 ## summary1
 sum.res.all = NULL
@@ -17,10 +17,10 @@ for(S in s[1]){
     load(paste0("res-pop/data-set-",i,"-S",S,".RData"))
 
     DATA1=DATA%>%t()
-    dim(DATA1) = c(6,6,1000)
+    dim(DATA1) = c(6,6,rtimes)
 
     ## remove nonconverged values
-    for(i in 1:1000){
+    for(i in 1:rtimes){
       DATA1[,,i][1:5,(DATA1[,,i][6,]!=0)]=NA
     }
 
@@ -32,13 +32,13 @@ for(S in s[1]){
   }}
 
 ## data generating 1
-df.mu = sum.res.all[seq(1, nrow(sum.res.all), by = 6), c(1,3,5)]-(-0.7)
+df.mu = sum.res.all[seq(1, nrow(sum.res.all), by = 6), c(1,3,5)]
 matplot(df.mu, type="b")
 abline(h=0)
 title("S=10 and data generating 1")
 
 ## data generating 2
-df.mu = sum.res.all[seq(1, nrow(sum.res.all), by = 6), c(2,4,6)]-(-0.7)
+df.mu = sum.res.all[seq(1, nrow(sum.res.all), by = 6), c(2,4,6)]
 matplot(df.mu, type="b")
 abline(h=0)
 title("S=10 and data generating 2")
@@ -51,10 +51,10 @@ for(S in s[2]){
     load(paste0("res-pop/data-set-",i,"-S",S,".RData"))
 
     DATA1=DATA%>%t()
-    dim(DATA1) = c(6,6,1000)
+    dim(DATA1) = c(6,6,rtimes)
 
     ## remove nonconverged values
-    for(i in 1:1000){
+    for(i in 1:rtimes){
       DATA1[,,i][1:5,(DATA1[,,i][6,]!=0)]=NA
     }
 
@@ -66,13 +66,13 @@ for(S in s[2]){
   }}
 
 ## data generating 1
-df.mu = sum.res.all[seq(1, nrow(sum.res.all), by = 6), c(1,3,5)]-(-0.7)
+df.mu = sum.res.all[seq(1, nrow(sum.res.all), by = 6), c(1,3,5)]
 matplot(df.mu, type="b")
 abline(h=0)
 title("S=50 and data generating 1")
 
 ## data generating 2
-df.mu = sum.res.all[seq(1, nrow(sum.res.all), by = 6), c(2,4,6)]-(-0.7)
+df.mu = sum.res.all[seq(1, nrow(sum.res.all), by = 6), c(2,4,6)]
 matplot(df.mu, type="b")
 abline(h=0)
 title("S=50 and data generating 2")
