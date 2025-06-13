@@ -15,7 +15,7 @@ par(mfrow=c(2,2))
 sum.res.all = NULL
 for(S in s[1]){
   for(i in 1:6){
-    load(paste0("res-pop/data-set-",i,"-S",S,".RData"))
+    load(paste0("res-sel/data-set-",i,"-S",S,".RData"))
 
     DATA1=DATA%>%t()
     dim(DATA1) = c(6,6,rtimes)
@@ -49,7 +49,7 @@ title("S=10 and data generating 2")
 sum.res.all = NULL
 for(S in s[2]){
   for(i in 1:6){
-    load(paste0("res-pop/data-set-",i,"-S",S,".RData"))
+    load(paste0("res-sel/data-set-",i,"-S",S,".RData"))
 
     DATA1=DATA%>%t()
     dim(DATA1) = c(6,6,rtimes)

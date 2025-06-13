@@ -19,10 +19,10 @@ library(metafor)
 ## true parameters set1 ----------
 s = c(10, 50) ## #of population studies
 set = expand.grid(
-  t.theta = c(0.7), ## true theta
+  t.theta = c(-0.7), ## true theta
   t.tau = sqrt(c(0.05, 0.3, 0.7)), ## true tau  
   t.rho = c(0.8), ## for population data rho does not matter the estimates
-  n.median = c(10), ## median number of total subjects,
+  n.median = c(20), ## median number of total subjects,
   grp.r = c(1, 2), ##group ratio: treat:control
   pmax = 0.99,
   pmin = 0.6
