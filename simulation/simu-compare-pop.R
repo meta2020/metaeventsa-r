@@ -72,8 +72,8 @@ for(i in 1:nrow(set)){
     
     
     ## population data and selective data
-    pdata1 = plist1$p.dt
-    pdata2 = plist2$p.dt
+    pdata1 = plist1$s.dt
+    pdata2 = plist2$s.dt
 
     ## data of lnOR
     data = lapply(list(pdata1,pdata2),
@@ -138,7 +138,7 @@ for(i in 1:nrow(set)){
       pbn1,pbn2)
 
   }
-  save(DATA,file = paste0("res-pop/data-set-",i,"-S",S,".RData"))
+  save(DATA,file = paste0("res-sel/data-set-",i,"-S",S,".RData"))
   
 }}
 

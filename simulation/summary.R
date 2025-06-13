@@ -9,6 +9,7 @@ library(metafor)
 
 s = c(10, 50) ## #of population studies
 rtimes=200
+t.mu = 0.7
 par(mfrow=c(2,2))
 ## summary1
 sum.res.all = NULL
@@ -32,13 +33,13 @@ for(S in s[1]){
   }}
 
 ## data generating 1
-df.mu = sum.res.all[seq(1, nrow(sum.res.all), by = 6), c(1,3,5)]
+df.mu = sum.res.all[seq(1, nrow(sum.res.all), by = 6), c(1,3,5)]-t.mu
 matplot(df.mu, type="b")
 abline(h=0)
 title("S=10 and data generating 1")
 
 ## data generating 2
-df.mu = sum.res.all[seq(1, nrow(sum.res.all), by = 6), c(2,4,6)]
+df.mu = sum.res.all[seq(1, nrow(sum.res.all), by = 6), c(2,4,6)]-t.mu
 matplot(df.mu, type="b")
 abline(h=0)
 title("S=10 and data generating 2")
@@ -66,13 +67,13 @@ for(S in s[2]){
   }}
 
 ## data generating 1
-df.mu = sum.res.all[seq(1, nrow(sum.res.all), by = 6), c(1,3,5)]
+df.mu = sum.res.all[seq(1, nrow(sum.res.all), by = 6), c(1,3,5)]-t.mu
 matplot(df.mu, type="b")
 abline(h=0)
 title("S=50 and data generating 1")
 
 ## data generating 2
-df.mu = sum.res.all[seq(1, nrow(sum.res.all), by = 6), c(2,4,6)]
+df.mu = sum.res.all[seq(1, nrow(sum.res.all), by = 6), c(2,4,6)]-t.mu
 matplot(df.mu, type="b")
 abline(h=0)
 title("S=50 and data generating 2")
