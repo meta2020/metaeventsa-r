@@ -57,8 +57,8 @@ COPAS_HNGLMM = function(
         
         sapply(1:length(yi), 
                function(i) pnorm((a0+a1*sqrt(ni[i])+rho*(thetai-mu)/tau)/sqrt(1-rho^2))/pnorm(a0+a1*sqrt(ni[i]))*
-                 # MCMCpack::dnoncenhypergeom(x = y1[i], n1[i], n0[i], yi[i], exp(thetai))* 
-                BiasedUrn::dFNCHypergeo(x = y1[i], m1=n1[i], m2=n0[i], n=yi[i], odds=exp(thetai))* 
+                 MCMCpack::dnoncenhypergeom(x = y1[i], n1[i], n0[i], yi[i], exp(thetai))*
+                # BiasedUrn::dFNCHypergeo(x = y1[i], m1=n1[i], m2=n0[i], n=yi[i], odds=exp(thetai))* 
                  dnorm(thetai, mean = mu, sd = tau)
         )
       }

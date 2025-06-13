@@ -40,10 +40,14 @@ gen.data1 = function(
   deltai=m[,2]
 
   # generate yi
-  yi  = runif(s, min = y_min, max = y_max) %>% round()
-  study.pi = plogis(log(n1i/n0i) + thetai)
+  yi  = runif(s, min = 0, max = y_max) %>% round()
+  # study.pi = plogis(log(n1i/n0i) + thetai)
   
-  y1i = rbinom(s, size = yi, prob = study.pi) 
+  # y1i = rbinom(s, size = yi, prob = study.pi)
+  # yi = BiasedUrn::rFNCHypergeo(nran=s, m1=n1[i], m2=n0[i], n=yi[i], odds=exp(thetai))
+  y1i = sapply(1:s, function(i) MCMCpack::rnoncenhypergeom(1, n1i[i], n0i[i], yi[i], exp(thetai[i])))
+  
+  
   y0i = yi- y1i 
   y1i[which(y1i>n1i)]=n1i[which(y1i>n1i)]
   y0i[which(y0i>n0i)]=n0i[which(y0i>n0i)]

@@ -20,18 +20,19 @@ library(metafor)
 s = c(10, 50) ## #of population studies
 set = expand.grid(
   t.theta = c(0.7), ## true theta
-  t.tau = sqrt(c(0.05, 0.3, 0.5)), ## true tau  
+  t.tau = sqrt(c(0.05, 0.3, 0.7)), ## true tau  
   t.rho = c(0.8), ## for population data rho does not matter the estimates
-  n.median = c(20), ## median number of total subjects,
+  n.median = c(10), ## median number of total subjects,
   grp.r = c(1, 2), ##group ratio: treat:control
   pmax = 0.99,
   pmin = 0.6
 ) %>% arrange(t.theta,n.median)
 # set$p0 = ifelse(set$n.median==50, 0.05,0.1)
 # set$t.rho = ifelse(set$t.theta>0, 0.8, -0.8)
-set$ymin = ifelse(set$n.median==50, 0, 0)
-set$ymax = ifelse(set$n.median==50, 5, 10)
-
+# set$ymin = ifelse(set$n.median==50, 0, 0)
+# set$ymax = ifelse(set$n.median==50, 5, 10)
+set$ymin = 0
+set$ymax = set$n.median/2
 # set.gr1 = set[set$grp.r==1,]
 # set.gr2 = set[set$grp.r==2,]
 # set.gr = set.gr1[1,]
@@ -45,7 +46,7 @@ doSNOW::registerDoSNOW(cl)
 set.seed(2025)
 for(S in s){
 for(i in 1:nrow(set)){ 
-  DATA = foreach(r=1:1000, .combine = rbind,.packages=c("tidyr","mnormt","dplyr","metafor"))  %dorng%  {
+  DATA = foreach(r=1:200, .combine = rbind,.packages=c("tidyr","mnormt","dplyr","metafor"))  %dorng%  {
 
     set.gr = set[i,]
     pmax = set.gr$pmax
