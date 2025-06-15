@@ -9,7 +9,7 @@ library(metafor)
 
 s = c(10, 50) ## #of population studies
 rtimes=200
-t.mu = 0.7
+t.mu = -0.7
 par(mfrow=c(2,2))
 ## summary1
 sum.res.all = NULL

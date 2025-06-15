@@ -44,7 +44,7 @@ COPAS2000 = function(
   
   gamma = c(gamma0, gamma1)
 
-  if(is.null(parset[["init.vals"]])) parset[["init.vals"]] = c(median(yi, na.rm = TRUE), sd(yi, na.rm = TRUE))
+  # if(is.null(parset[["init.vals"]])) parset[["init.vals"]] = c(median(yi, na.rm = TRUE), sd(yi, na.rm = TRUE))
 
   ## estimate rho
   if (parset[["estimate.rho"]]) {
@@ -63,7 +63,7 @@ COPAS2000 = function(
       sigma = sqrt(si^2 / (1 - rho^2 * .lambda(u) * (u + .lambda(u))))
       s2t2 = sigma^2 + tau^2
       rho.tilde = rho * sigma / sqrt(s2t2)
-      v = (u + rho.tilde * (yi - mu) / (sqrt(s2t2))) / sqrt(1 - rho.tilde^2)
+      v = (u + rho.tilde * (yi - mu) / (sqrt(s2t2))) / suppressWarnings(sqrt(1 - rho.tilde^2))
       ##
       ## Avoid numerical problems by replacing 0's in pnorm(v):
       ## qnorm(1e-320) = -38.26913
@@ -81,13 +81,11 @@ COPAS2000 = function(
       return(res)
     }
     ## optimization
-    rho.bound = 0.9999
-    rho.init = -0.1
-    init.vals.rho = c(parset[["init.vals"]], rho.init)
+    init.vals.rho = c(parset[["init.vals"]])
     optim.res = try(
       nlminb(init.vals.rho, copas2000.llk.est.rho,
-               lower = c(-parset[["mu.bound"]], parset[["eps"]], -rho.bound),
-               upper = c( parset[["mu.bound"]], parset[["tau.bound"]], rho.bound)), 
+               lower = c(-parset[["mu.bound"]], parset[["eps"]], -0.99),
+               upper = c( parset[["mu.bound"]], parset[["tau.bound"]], 0.99)), 
         silent = TRUE)
     
     if(!inherits(optim.res, "try-error")) {
@@ -130,7 +128,7 @@ COPAS2000 = function(
     rho.tilde = rho * sigma / sqrt(s2t2)
     ##
     v = (u + rho.tilde * (TE - mu) / (sqrt(s2t2))) /
-      sqrt(1 - rho.tilde^2)
+      suppressWarnings(sqrt(1 - rho.tilde^2))
     ##
     ## Avoid numerical problems by replacing 0's in pnorm(v):
     ## qnorm(1e-320) = -38.26913

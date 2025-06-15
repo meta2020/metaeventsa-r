@@ -18,6 +18,7 @@
 COPAS_HNGLMM = function(
     y0, y1, n0, n1, 
     Pnmax = 0.99, Pnmin = 0.5,
+    n_min,n_max,
     parset = list(
       mu.bound = 10,
       tau.bound = 5,
@@ -32,17 +33,17 @@ COPAS_HNGLMM = function(
   ni = n1+n0
   yi = y1+y0
   
-  n_min = min(ni) 
-  n_max = max(ni)
+  # n_min = min(ni) 
+  # n_max = max(ni)
   
   a1 = (qnorm(Pnmax)-qnorm(Pnmin))/(sqrt(n_max)-sqrt(n_min))
   a0 = qnorm(Pnmax)-a1*sqrt(n_max)
   
-  if(is.null(parset[["init.vals"]])) {
-    cyi = metafor::escalc(measure="OR", ai=y1, bi=n1-y1, ci=y0, di=n0-y0)[,1]
-    parset[["init.vals"]] = 0.5*c(min(mean(cyi, na.rm = TRUE), parset[["mu.bound"]]), 
-                              min(sd(cyi, na.rm = TRUE), parset[["tau.bound"]]))
-    }
+  # if(is.null(parset[["init.vals"]])) {
+  #   cyi = metafor::escalc(measure="OR", ai=y1, bi=n1-y1, ci=y0, di=n0-y0)[,1]
+  #   parset[["init.vals"]] = 0.5*c(min(mean(cyi, na.rm = TRUE), parset[["mu.bound"]]), 
+  #                             min(sd(cyi, na.rm = TRUE), parset[["tau.bound"]]))
+  #   }
   ## estimate rho
   if (parset[["estimate.rho"]]) {
 
@@ -56,7 +57,7 @@ COPAS_HNGLMM = function(
       f = function(thetai) {
         
         sapply(1:length(yi), 
-               function(i) pnorm((a0+a1*sqrt(ni[i])+rho*(thetai-mu)/tau)/sqrt(1-rho^2))/pnorm(a0+a1*sqrt(ni[i]))*
+               function(i) pnorm((a0+a1*sqrt(ni[i])+rho*(thetai-mu)/tau)/suppressWarnings(sqrt(1-rho^2)))/pnorm(a0+a1*sqrt(ni[i]))*
                  MCMCpack::dnoncenhypergeom(x = y1[i], n1[i], n0[i], yi[i], exp(thetai))*
                 # BiasedUrn::dFNCHypergeo(x = y1[i], m1=n1[i], m2=n0[i], n=yi[i], odds=exp(thetai))* 
                  dnorm(thetai, mean = mu, sd = tau)
@@ -72,14 +73,14 @@ COPAS_HNGLMM = function(
     }
     
     ## optimization
-    rho.bound = 0.9999
-    rho.init = -0.1
+    # rho.bound = 0.9999
+    # rho.init = -0.1
     
-    init.vals.rho = c(parset[["init.vals"]], rho.init)
+    init.vals.rho = c(parset[["init.vals"]])
     optim.res = try(
       nlminb(init.vals.rho, llk.est.rho,
-             lower = c(-parset[["mu.bound"]], parset[["eps"]], -rho.bound),
-             upper = c( parset[["mu.bound"]], parset[["tau.bound"]], rho.bound)), 
+             lower = c(-parset[["mu.bound"]], parset[["eps"]], -0.99),
+             upper = c( parset[["mu.bound"]], parset[["tau.bound"]], 0.99)), 
       silent = TRUE)
     
     if(!inherits(optim.res, "try-error")) {
@@ -109,19 +110,19 @@ COPAS_HNGLMM = function(
     
   } else { ## not estimate rho
     
+    rho  = parset[["rho.fix"]]
     llk.fix.rho = function(par) {
       
       mu   = par[1]
       tau  = par[2]
       tau2 = tau^2
-      rho  = rho.fix
       
       f = function(thetai) {
         
         sapply(1:length(yi), 
-               function(i) pnorm((a0+a1*sqrt(ni[i])+rho*(thetai-mu)/tau)/sqrt(1-rho^2))/pnorm(a0+a1*sqrt(ni[i]))*
-                 # MCMCpack::dnoncenhypergeom(x = y1[i], n1[i], n0[i], yi[i], exp(thetai))* 
-                 BiasedUrn::dFNCHypergeo(x = y1[i], m1=n1[i], m2=n0[i], n=yi[i], odds=exp(thetai)) * 
+               function(i) pnorm((a0+a1*sqrt(ni[i])+rho*(thetai-mu)/tau)/suppressWarnings(sqrt(1-rho^2)))/pnorm(a0+a1*sqrt(ni[i]))*
+                 MCMCpack::dnoncenhypergeom(x = y1[i], n1[i], n0[i], yi[i], exp(thetai))*
+                 # BiasedUrn::dFNCHypergeo(x = y1[i], m1=n1[i], m2=n0[i], n=yi[i], odds=exp(thetai)) * 
                  dnorm(thetai, mean = mu, sd = tau)
         )
       }
@@ -157,10 +158,10 @@ COPAS_HNGLMM = function(
     
     res = list(mu = c(mu = mu, mu.se = mu.se),
                 tau = c(tau = tau, tau.se = tau.se, tau2 = tau2),
-                rho = rho.fix,
+                rho = c(rho.fix = parset[["rho.fix"]], rho.se=NA),
                 a   = c(a0, a1),
                 opt = optim.res,
-                init.vals = init.vals,
+                init.vals = parset[["init.vals"]],
                 var.mat = var.matrix)
     
   }
@@ -188,6 +189,7 @@ COPAS_HNGLMM = function(
 COPAS_BNGLMM = function(
     y0, y1, n0, n1, 
     Pnmax = 0.99, Pnmin = 0.5,
+    n_min,n_max,
     parset = list(
       mu.bound = 10,
       tau.bound = 5,
@@ -225,7 +227,7 @@ COPAS_BNGLMM = function(
       
       f = function(thetai) {
         
-        pnorm((a0+a1*sqrt(ni)+rho*(thetai-mu)/tau)/sqrt(1-rho^2))/pnorm(a0+a1*sqrt(ni)) * 
+        pnorm((a0+a1*sqrt(ni)+rho*(thetai-mu)/tau)/suppressWarnings(sqrt(1-rho^2)))/pnorm(a0+a1*sqrt(ni)) * 
           dbinom(y1, yi, prob = plogis(log(n1 / n0) + thetai)) * 
           dnorm(thetai, mean = mu, sd = tau)
         
@@ -240,14 +242,14 @@ COPAS_BNGLMM = function(
     }
     
     ## optimization
-    rho.bound = 0.9999
-    rho.init = -0.1
+    # rho.bound = 0.9999
+    # rho.init = -0.1
     
-    init.vals.rho = c(parset[["init.vals"]], rho.init)
+    init.vals.rho = c(parset[["init.vals"]])
     optim.res = try(
       nlminb(init.vals.rho, llk.est.rho,
-             lower = c(-parset[["mu.bound"]], parset[["eps"]], -rho.bound),
-             upper = c( parset[["mu.bound"]], parset[["tau.bound"]], rho.bound)), 
+             lower = c(-parset[["mu.bound"]], parset[["eps"]], -0.99),
+             upper = c( parset[["mu.bound"]], parset[["tau.bound"]], 0.99)), 
       silent = TRUE)
     
     if(!inherits(optim.res, "try-error")) {
@@ -277,16 +279,17 @@ COPAS_BNGLMM = function(
     
   } else { ## not estimate rho
     
+    rho  = parset[["rho.fix"]]
     llk.fix.rho = function(par) {
       
       mu   = par[1]
       tau  = par[2]
       tau2 = tau^2
-      rho  = rho.fix
+      
       
       f = function(thetai) {
         
-        pnorm((a0+a1*sqrt(ni)+rho*(thetai-mu)/tau)/sqrt(1-rho^2))/pnorm(a0+a1*sqrt(ni)) * 
+        pnorm((a0+a1*sqrt(ni)+rho*(thetai-mu)/tau)/suppressWarnings(sqrt(1-rho^2)))/pnorm(a0+a1*sqrt(ni)) * 
           dbinom(y1, yi, prob = plogis(log(n1 / n0) + thetai)) * 
           dnorm(thetai, mean = mu, sd = tau)
         
@@ -323,10 +326,10 @@ COPAS_BNGLMM = function(
     
     res = list(mu = c(mu = mu, mu.se = mu.se),
                 tau = c(tau = tau, tau.se = tau.se, tau2 = tau2),
-                rho = rho.fix,
+                rho = c(rho.fix = parset[["rho.fix"]], rho.se=NA),
                 a   = c(a0, a1),
                 opt = optim.res,
-                init.vals = init.vals,
+                init.vals = parset[["init.vals"]],
                 var.mat = var.matrix)
     
   }
@@ -354,6 +357,7 @@ COPAS_BNGLMM = function(
 COPAS_BNGLMM_prop = function(
     y1, n1, 
     Pnmax = 0.99, Pnmin = 0.5,
+    n_min,n_max,
     parset = list(
       mu.bound = 10,
       tau.bound = 5,
@@ -371,11 +375,11 @@ COPAS_BNGLMM_prop = function(
   a1 = (qnorm(Pnmax)-qnorm(Pnmin))/(sqrt(n_max)-sqrt(n_min))
   a0 = qnorm(Pnmax)-a1*sqrt(n_max)
 
-  if(is.null(parset[["init.vals"]])) {
-    cyi = metafor::escalc(measure="PLN", xi=y1, mi=n1-y1)[,1]
-    parset[["init.vals"]] = 0.5*c(min(median(cyi, na.rm = TRUE), parset[["mu.bound"]]), 
-                              min(sd(cyi, na.rm = TRUE), parset[["tau.bound"]]))
-    }
+  # if(is.null(parset[["init.vals"]])) {
+  #   cyi = metafor::escalc(measure="PLN", xi=y1, mi=n1-y1)[,1]
+  #   parset[["init.vals"]] = 0.5*c(min(median(cyi, na.rm = TRUE), parset[["mu.bound"]]), 
+  #                             min(sd(cyi, na.rm = TRUE), parset[["tau.bound"]]))
+  #   }
 
   ## estimate rho
   if (parset[["estimate.rho"]]) {
@@ -389,7 +393,7 @@ COPAS_BNGLMM_prop = function(
       
       f = function(thetai) {
         
-        pnorm((a0+a1*sqrt(n1)+rho*(thetai-mu)/tau)/sqrt(1-rho^2))/pnorm(a0+a1*sqrt(n1)) * 
+        pnorm((a0+a1*sqrt(n1)+rho*(thetai-mu)/tau)/suppressWarnings(sqrt(1-rho^2)))/pnorm(a0+a1*sqrt(n1)) * 
           dbinom(y1, n1, prob = plogis(thetai)) * 
           dnorm(thetai, mean = mu, sd = tau)
         
@@ -404,14 +408,14 @@ COPAS_BNGLMM_prop = function(
     }
 
     ## optimization
-    rho.bound = 0.9999
-    rho.init = -0.1
+    # rho.bound = 0.9999
+    # rho.init = -0.1
     
-    init.vals.rho = c(parset[["init.vals"]], rho.init)
+    init.vals.rho = c(parset[["init.vals"]])
     optim.res = try(
       nlminb(init.vals.rho, llk.est.rho,
-             lower = c(-parset[["mu.bound"]], parset[["eps"]], -rho.bound),
-             upper = c( parset[["mu.bound"]], parset[["tau.bound"]], rho.bound)), 
+             lower = c(-parset[["mu.bound"]], parset[["eps"]], -0.99),
+             upper = c( parset[["mu.bound"]], parset[["tau.bound"]], 0.99)), 
       silent = TRUE)
     
     if(!inherits(optim.res, "try-error")) {
@@ -441,16 +445,17 @@ COPAS_BNGLMM_prop = function(
     
   } else {  ## not estimate rho
     
+    
     llk.fix.rho = function(par) {
       
       mu   = par[1]
       tau  = par[2]
       tau2 = tau^2
-      rho  = rho.fix
+      rho  = parset[["rho.fix"]]
       
       f = function(thetai) {
         
-        pnorm((a0+a1*sqrt(n1)+rho*(thetai-mu)/tau)/sqrt(1-rho^2))/pnorm(a0+a1*sqrt(n1)) * 
+        pnorm((a0+a1*sqrt(n1)+rho*(thetai-mu)/tau)/suppressWarnings(sqrt(1-rho^2)))/pnorm(a0+a1*sqrt(n1)) * 
           dbinom(y1, n1, prob = plogis(thetai)) * 
           dnorm(thetai, mean = mu, sd = tau)
         
@@ -487,7 +492,7 @@ COPAS_BNGLMM_prop = function(
     
     res = list(mu = c(mu = mu, mu.se = mu.se),
                 tau = c(tau = tau, tau.se = tau.se, tau2 = tau2),
-                rho = rho.fix,
+                rho = c(rho.fix = parset[["rho.fix"]], rho.se=NA),
                 a   = c(a0, a1),
                 opt = optim.res,
                 init.vals = init.vals,

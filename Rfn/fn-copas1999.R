@@ -41,7 +41,7 @@ COPAS1999 = function(
   
   gamma = c(gamma0=gamma0, gamma1=gamma1)
 
-  if(is.null(parset[["init.vals"]])) parset[["init.vals"]] = c(median(yi, na.rm = TRUE), sd(yi, na.rm = TRUE))
+  # if(is.null(parset[["init.vals"]])) parset[["init.vals"]] = c(median(yi, na.rm = TRUE), sd(yi, na.rm = TRUE), rho.init = -0.1)
 
   ## estimate rho
   if (parset[["estimate.rho"]]) {
@@ -75,13 +75,12 @@ COPAS1999 = function(
   }
   
   ## optimization
-  rho.bound = 0.9999
-  rho.init = -0.1
-  init.vals.rho = c(parset[["init.vals"]], rho = rho.init)
+
+  init.vals.rho = c(parset[["init.vals"]])
   optim.res = try(
     nlminb(init.vals.rho, copas1999.llk.est.rho,
-             lower = c(-parset[["mu.bound"]], parset[["eps"]], -rho.bound),
-             upper = c( parset[["mu.bound"]], parset[["tau.bound"]], rho.bound)), 
+             lower = c(-parset[["mu.bound"]], parset[["eps"]], -0.99),
+             upper = c( parset[["mu.bound"]], parset[["tau.bound"]], 0.99)), 
       silent = TRUE)
   
   if(!inherits(optim.res, "try-error")) {
