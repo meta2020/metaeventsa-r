@@ -21,8 +21,8 @@ for(S in s[1]){
     dim(DATA1) = c(6,6,rtimes)
 
     ## remove nonconverged values
-    for(i in 1:rtimes){
-      DATA1[,,i][1:5,(DATA1[,,i][6,]!=0)]=NA
+    for(j in 1:rtimes){
+      DATA1[,,j][1:5,(DATA1[,,j][6,]!=0)]=NA
     }
 
     sum.res = apply(DATA1, c(1, 2), function(x) median(x, na.rm=T))
@@ -55,8 +55,8 @@ for(S in s[2]){
     dim(DATA1) = c(6,6,rtimes)
 
     ## remove nonconverged values
-    for(i in 1:rtimes){
-      DATA1[,,i][1:5,(DATA1[,,i][6,]!=0)]=NA
+    for(j in 1:rtimes){
+      DATA1[,,j][1:5,(DATA1[,,j][6,]!=0)]=NA
     }
 
     sum.res = apply(DATA1, c(1, 2), function(x) median(x, na.rm=T))

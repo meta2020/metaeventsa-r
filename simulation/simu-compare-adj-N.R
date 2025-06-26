@@ -133,7 +133,7 @@ for(i in 1:nrow(set)){
       list(lpdata1,lpdata2), 
       function(data) with(data, 
                           COPAS_HNGLMM(y0, y1, n0, n1, Pnmax = pmax, Pnmin = pmin,
-                                       n_min = min(pdata1$n), n_max = max(pdata1$n),
+                                       n_min = min(sdata1$n), n_max = max(sdata1$n),
                                        parset=parset.new))))
     
     pchn1 = c(fit.Chn[[1]]$mu, fit.Chn[[1]]$tau,fit.Chn[[1]]$rho,
@@ -157,7 +157,7 @@ for(i in 1:nrow(set)){
       list(lpdata1,lpdata2), 
       function(data) with(data, 
                           COPAS_HNGLMM(y0, y1, n0, n1, Pnmax = pmax, Pnmin = pmin,
-                                       n_min = min(pdata1$n), n_max = max(pdata1$n),
+                                       n_min = min(sdata1$n), n_max = max(sdata1$n),
                                        parset=parset.new.fr))))
     
     pchnf1 = c(fit.Chnf[[1]]$mu, fit.Chnf[[1]]$tau,fit.Chnf[[1]]$rho,
@@ -170,7 +170,7 @@ for(i in 1:nrow(set)){
       list(lpdata1,lpdata2), 
       function(data) with(data, 
                           COPAS_BNGLMM(y0, y1, n0, n1, Pnmax = pmax, Pnmin = pmin,
-                                       n_min = min(pdata1$n), n_max = max(pdata1$n),
+                                       n_min = min(sdata1$n), n_max = max(sdata1$n),
                                        parset=parset.new))))
     
     pcbn1 = c(fit.Cbn[[1]]$mu, fit.Cbn[[1]]$tau,fit.Cbn[[1]]$rho,
@@ -183,7 +183,7 @@ for(i in 1:nrow(set)){
       list(lpdata1,lpdata2), 
       function(data) with(data, 
                           COPAS_BNGLMM(y0, y1, n0, n1, Pnmax = pmax, Pnmin = pmin,
-                                       n_min = min(pdata1$n), n_max = max(pdata1$n),
+                                       n_min = min(sdata1$n), n_max = max(sdata1$n),
                                        parset=parset.new.fr))))
     
     pcbnf1 = c(fit.Cbnf[[1]]$mu, fit.Cbnf[[1]]$tau,fit.Cbnf[[1]]$rho,
@@ -201,7 +201,7 @@ for(i in 1:nrow(set)){
       pcbnf1,pcbnf2)
 
   }
-  save(DATA,file = paste0("res-sel/data-set-",i,"-S",S,".RData"))
+  save(DATA,file = paste0("res-adjN/data-set-",i,"-S",S,".RData"))
   
 }}
 

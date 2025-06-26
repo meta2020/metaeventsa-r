@@ -20,18 +20,22 @@
 # Pnmin = 0.5
 
 gen.data1 = function(
-  s, n.med, gr,
+  s, 
+  # n_min, n_max,
+  n.med,
+  gr,
   theta,tau,rho,
-  y_min=10,y_max=20,
-  Pnmax = 0.99, Pnmin = 0.5){
+  y_min,y_max,
+  Pnmax, Pnmin){
 
   # n0i = runif( s, min = n_min, max = n_max ) %>% round()
-  # n1i = runif( s, min = n_min, max = n_max ) %>% round()
-  
+  # n1i = n0i*gr
+  # n = runif( s, min = n_min, max = n_max )
   n = round(rlnorm(s,log(n.med),1)) # total #subjects
-  n = ifelse(n<10,10,n)
+  n = ifelse(n<20,20,n)
   n0i = rbinom(s, n, 1 / (1 + gr)) # #control subjects
-  n1i = n - n0i # #treatment subjects
+  # n0i = (n*(1 / (1 + gr))) %>% round()
+  n1i = n0i # #treatment subjects
 
   # generate deltai and thetai
   sigma=matrix(c(tau^2,rho*tau,rho*tau,1),2,2)
@@ -40,13 +44,13 @@ gen.data1 = function(
   deltai=m[,2]
 
   # generate yi
-  yi  = runif(s, min = 0, max = y_max) %>% round()
+  yi  = runif(s, min =y_min, max = y_max) %>% round()
   # study.pi = plogis(log(n1i/n0i) + thetai)
   
   # y1i = rbinom(s, size = yi, prob = study.pi)
   # yi = BiasedUrn::rFNCHypergeo(nran=s, m1=n1[i], m2=n0[i], n=yi[i], odds=exp(thetai))
-  y1i = sapply(1:s, function(i) MCMCpack::rnoncenhypergeom(1, n1i[i], n0i[i], yi[i], exp(thetai[i])))
-  
+  # y1i = sapply(1:s, function(i) MCMCpack::rnoncenhypergeom(1, n1i[i], n0i[i], yi[i], exp(thetai[i])))
+  y1i = sapply(1:s, function(i) rbinom(1, yi[i], plogis(log(n1i[i]/n0i[i])+thetai[i])) )
   
   y0i = yi- y1i 
   y1i[which(y1i>n1i)]=n1i[which(y1i>n1i)]
@@ -61,20 +65,20 @@ gen.data1 = function(
   a1=(qnorm(Pnmax)-qnorm(Pnmin))/(sqrt(n_max)-sqrt(n_min))
   a0=qnorm(Pnmax)-a1*sqrt(n_max)
   
-  zi=a0+a1*sqrt(ni)+deltai
-  p.dt$z=1*(zi>0)
-  
-  pz=pnorm(a0+a1*sqrt(ni))
-  p.dt$pz=pz
-  p=mean(pz)
-  
-  s.dt = p.dt[p.dt$z>0,]
-  M=sum((1-pz)/pz)%>%round()
+  zi=a0+a1*sqrt(ni-0.5)+deltai
+  z1=1*(zi>0)
+
+  pz=pnorm(a0+a1*sqrt(ni-0.5))
+  z=sapply(1:s, function(i) rbinom(1,1,pz[i]))
+
+  s.dt=p.dt[z1>0,]
+  pz.s = pz[z1>0]
+  M=sum((1-pz.s)/pz.s)%>%round()
   M.e = s-sum(p.dt$z)
   
   return(list(
     p.dt=p.dt,s.dt=s.dt,
-    m=M, e.m=M.e,
+    m.e=M, m.o=M.e,
     a1=a1,a0=a0,p=p))
   
 }
@@ -183,8 +187,8 @@ gen.data2 = function(
     deltai=m[,2]
   
     ORi = exp(thetai) # empirical odds ratio
-    pi0 = runif(s,0.2,0.9)
-    # pi0 = plogis(rnorm(s, qlogis(p0), tau^2 / sqrt(2))) # prob of control in study i
+    # pi0 = runif(s,0.2,0.9)
+    pi0 = plogis(rnorm(s, qlogis(p0), tau / 2)) # prob of control in study i
     m = ORi * pi0 / ( 1 - pi0 )
     pi1 = m / ( 1 + m )   # prob of event in study i
 

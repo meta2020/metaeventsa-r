@@ -105,8 +105,8 @@ HN_GLMM = function(
     
     f = function(thetai) {  
       sapply(1:length(yi), 
-        # function(i) MCMCpack::dnoncenhypergeom(x = y1[i], n1=n1[i], n2=n0[i], m1=yi[i], psi=exp(theta)) 
-        function(i) BiasedUrn::dFNCHypergeo(x = y1[i], m1=n1[i], m2=n0[i], n=yi[i], odds=exp(thetai)) * 
+        function(i) MCMCpack::dnoncenhypergeom(x = y1[i], n1[i], n0[i], yi[i], exp(thetai)) *
+        # function(i) BiasedUrn::dFNCHypergeo(x = y1[i], m1=n1[i], m2=n0[i], n=yi[i], odds=exp(thetai)) * 
           dnorm(thetai, mean = mu, sd = tau))
       }
 
