@@ -1,90 +1,4 @@
-#' Generate meta-analysis with sparse event
-#'
-#' generate data from BN model
-#' @param s number of studies
-#' @param theta true log OR
-#' @param tau true between-study standard deviation
-#' @param rho true average control group probability
-#' @param Pnmax probabilities of publishing a study with maximum subjects
-#' @param Pnmin probabilities of publishing a study with minimum subjects
-#' 
-# s=10
-# n.med=10
-# gr=1
-# theta=0.7
-# tau=0.05
-# rho=0.8
-# y_min=10
-# y_max=20
-# Pnmax = 0.99
-# Pnmin = 0.5
 
-gen.data1 = function(
-  s, 
-  # n_min, n_max,
-  n.med,
-  gr,
-  theta,tau,rho,
-  y_min,y_max,
-  Pnmax, Pnmin){
-
-  # n0i = runif( s, min = n_min, max = n_max ) %>% round()
-  # n1i = n0i*gr
-  # n = runif( s, min = n_min, max = n_max )
-  n = round(rlnorm(s,log(n.med),1)) # total #subjects
-  n = ifelse(n<20,20,n)
-  n0i = rbinom(s, n, 1 / (1 + gr)) # #control subjects
-  # n0i = (n*(1 / (1 + gr))) %>% round()
-  n1i = n0i # #treatment subjects
-
-  # generate deltai and thetai
-  sigma=matrix(c(tau^2,rho*tau,rho*tau,1),2,2)
-  m = MASS::mvrnorm(s,c(theta,0),sigma)
-  thetai=m[,1]
-  deltai=m[,2]
-
-  # generate yi
-  yi  = runif(s, min =y_min, max = y_max) %>% round()
-  # study.pi = plogis(log(n1i/n0i) + thetai)
-  
-  # y1i = rbinom(s, size = yi, prob = study.pi)
-  # yi = BiasedUrn::rFNCHypergeo(nran=s, m1=n1[i], m2=n0[i], n=yi[i], odds=exp(thetai))
-  # y1i = sapply(1:s, function(i) MCMCpack::rnoncenhypergeom(1, n1i[i], n0i[i], yi[i], exp(thetai[i])))
-  y1i = sapply(1:s, function(i) rbinom(1, yi[i], plogis(log(n1i[i]/n0i[i])+thetai[i])) )
-  
-  y0i = yi- y1i 
-  y1i[which(y1i>n1i)]=n1i[which(y1i>n1i)]
-  y0i[which(y0i>n0i)]=n0i[which(y0i>n0i)]
-  ni=n0i+n1i
-  p.dt = data.frame(y1=y1i,y0=y0i,n1=n1i,n0=n0i,n=ni)
-  
-  ## selective process
-  n_min=min(ni) 
-  n_max=max(ni)
-  
-  a1=(qnorm(Pnmax)-qnorm(Pnmin))/(sqrt(n_max)-sqrt(n_min))
-  a0=qnorm(Pnmax)-a1*sqrt(n_max)
-  
-  zi=a0+a1*sqrt(ni-0.5)+deltai
-  z1=1*(zi>0)
-
-  pz=pnorm(a0+a1*sqrt(ni-0.5))
-  z=sapply(1:s, function(i) rbinom(1,1,pz[i]))
-
-  s.dt=p.dt[z1>0,]
-  pz.s = pz[z1>0]
-  M=sum((1-pz.s)/pz.s)%>%round()
-  M.e = s-sum(p.dt$z)
-  
-  return(list(
-    p.dt=p.dt,s.dt=s.dt,
-    m.e=M, m.o=M.e,
-    a1=a1,a0=a0,p=p))
-  
-}
-
-
-# 
 #' Generate data refering to Jansen K, Holling H. 
 #' Random-effects meta-analysis models for the odds ratio in the case of 
 #' rare events under different data-generating models: A simulation study. 
@@ -169,7 +83,7 @@ gen.data1 = function(
 ##
 ## From Ao
 ##
-gen.data2 = function(
+gen.data3 = function(
     s, n.med, gr,
     theta,tau,rho,
     p0,

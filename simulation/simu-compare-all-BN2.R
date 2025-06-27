@@ -53,7 +53,7 @@ for(i in 1:nrow(set)){
     pmin = set.gr$pmin
     
     ## create datasets
-    plist = gen.data1(
+    plist = gen.data2(
       s=S, 
       n.med=set.gr$n.median,
       # n_min = 10, n_max=20,
@@ -187,7 +187,7 @@ for(i in 1:nrow(set)){
     res
 
   }
-  save(DATA,file = paste0("res-all-HN/data-set-",i,"-S",S,".RData"))
+  save(DATA,file = paste0("res-all-BN1/data-set-",i,"-S",S,".RData"))
   
 }}
 

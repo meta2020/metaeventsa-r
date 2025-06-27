@@ -8,12 +8,12 @@ library(metafor)
 
 # s = c(10, 50) ## #of population studies
 rtimes=200
-t.mu = -0.7
+t.mu = -2
 
 ## summary1
 sum.res.all = NULL
 sum.cv.all = NULL
-S=20
+S=50
 for(i in 1:3){
   
   load(paste0("res-all-HN//data-set-",i,"-S",S,".RData"))
