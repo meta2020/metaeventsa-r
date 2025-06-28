@@ -16,7 +16,7 @@ sum.cv.all = NULL
 S=50
 for(i in 1:3){
   
-  load(paste0("res-all-HN//data-set-",i,"-S",S,".RData"))
+  load(paste0("res-all-BN1/data-set-",i,"-S",S,".RData"))
   DATA0 = DATA %>% t()%>% as.numeric() %>% 
     array(., dim = c(10, 10, 200),
           dimnames = list(colnames(DATA),rownames(DATA)[1:10],c(1:200)))
